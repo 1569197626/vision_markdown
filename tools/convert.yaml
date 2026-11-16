@@ -1,0 +1,94 @@
+identity:
+  name: convert
+  author: ninebot
+  label:
+    en_US: Document to Markdown
+    zh_Hans: 文档转 Markdown
+description:
+  human:
+    en_US: Convert one document to Markdown. Native text stays local; scans and images use the selected workspace vision model.
+    zh_Hans: 将单个文件转为 Markdown。原生文字在插件内提取；扫描页和图片调用所选工作空间视觉模型。
+  llm: Convert a PDF, DOCX, PPTX, XLSX, CSV, text or image file to faithful Markdown. A configured vision model is required when the document contains images or scanned pages. This tool raises errors instead of silently returning partial results.
+parameters:
+  - name: file
+    type: file
+    required: true
+    label:
+      en_US: Document
+      zh_Hans: 文件
+    human_description:
+      en_US: One PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown, PNG, JPEG, or WebP file, up to 20 MiB. Legacy DOC/PPT/XLS are not supported.
+      zh_Hans: 单个 PDF、DOCX、PPTX、XLSX、CSV、TXT、Markdown、PNG、JPEG 或 WebP，最大 20 MiB。不支持旧版 DOC/PPT/XLS。
+    llm_description: The single file to convert.
+    form: llm
+  - name: vision_model
+    type: model-selector
+    scope: llm&vision
+    required: false
+    label:
+      en_US: Workspace vision model
+      zh_Hans: 工作空间视觉模型
+    human_description:
+      en_US: Select an already configured vision model. Optional only for documents without images. Image content is sent to that model; its normal token charges apply.
+      zh_Hans: 选择已配置且支持图片的模型。仅无图片文档可留空。图片内容会发送给该模型，并产生相应模型费用。
+    form: form
+  - name: max_pages
+    type: number
+    required: true
+    default: 20
+    min: 1
+    max: 20
+    precision: 0
+    label:
+      en_US: Maximum pages or slides
+      zh_Hans: 最大页数或幻灯片数
+    human_description:
+      en_US: Reject documents above this limit rather than silently converting only the first pages.
+      zh_Hans: 超过上限会报错，不会仅转换前几页后假装成功。
+    form: form
+  - name: max_images
+    type: number
+    required: true
+    default: 24
+    min: 0
+    max: 24
+    precision: 0
+    label:
+      en_US: Maximum image calls
+      zh_Hans: 最多识别图片数
+    human_description:
+      en_US: Maximum image or scanned-page calls per file. Set 0 for native-text-only extraction; an encountered image then causes an error.
+      zh_Hans: 单个文件最多处理的图片或扫描页数量。设为 0 时仅允许原生文字；遇到图片会报错。
+    form: form
+output_schema:
+  type: object
+  properties:
+    markdown:
+      type: string
+      description: Complete Markdown document.
+    documents:
+      type: array
+      items:
+        type: object
+        properties:
+          page_content:
+            type: string
+          metadata:
+            type: object
+          provider:
+            type: string
+        required:
+          - page_content
+          - metadata
+      description: Extracted documents for downstream document processing.
+    warnings:
+      type: array
+      items:
+        type: string
+      description: Conversion warnings, including layout limitations.
+    stats:
+      type: object
+      description: Extraction counts and available model token usage.
+extra:
+  python:
+    source: tools/convert.py

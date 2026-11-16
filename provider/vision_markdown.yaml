@@ -1,0 +1,18 @@
+identity:
+  author: ninebot
+  name: vision_markdown
+  label:
+    en_US: Vision Markdown
+    zh_Hans: 文档转 Markdown
+  description:
+    en_US: Extract native text and recognize images with a Dify vision model.
+    zh_Hans: 提取原生文字，使用 Dify 视觉模型识别扫描页与图片。
+  icon: icon.svg
+  tags:
+    - rag
+    - productivity
+tools:
+  - tools/convert.yaml
+extra:
+  python:
+    source: provider/vision_markdown.py

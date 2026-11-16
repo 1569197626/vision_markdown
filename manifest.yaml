@@ -1,0 +1,35 @@
+version: 0.1.6
+type: plugin
+author: ninebot
+name: vision_markdown
+label:
+  en_US: Vision Markdown
+  zh_Hans: 文档转 Markdown
+description:
+  en_US: Extract document text and use a configured Dify vision model for scans and images.
+  zh_Hans: 提取文档原生文字，并用 Dify 已配置的视觉模型识别扫描页和图片。
+icon: icon.svg
+resource:
+  memory: 268435456
+  permission:
+    model:
+      enabled: true
+      llm: true
+plugins:
+  tools:
+    - provider/vision_markdown.yaml
+meta:
+  version: 0.0.1
+  arch:
+    - amd64
+    - arm64
+  runner:
+    language: python
+    version: "3.12"
+    entrypoint: main
+  minimum_dify_version: "1.17.1"
+created_at: "2026-11-13T00:00:00+08:00"
+privacy: PRIVACY.md
+tags:
+  - rag
+  - productivity
