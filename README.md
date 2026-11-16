@@ -1,6 +1,6 @@
 # Vision Markdown for Dify
 
-[简体中文](README.zh_Hans.md) · [Repository](https://github.com/1569197626/vision_markdown) · [Issues and contact](https://github.com/1569197626/vision_markdown/issues) · [Privacy](PRIVACY.md)
+[Simplified Chinese](README.zh_Hans.md) · [Repository](https://github.com/1569197626/vision_markdown) · [Issues and contact](https://github.com/1569197626/vision_markdown/issues) · [Privacy](PRIVACY.md)
 
 `ninebot/vision_markdown:0.1.6` combines native text, tables, and image recognition results into Markdown in document order. Images are processed through a vision model already configured in the Dify workspace. Dependencies do not include Docling, PyTorch, Triton, NVIDIA CUDA, or local model weights.
 
@@ -76,7 +76,7 @@ Fix silent loss of native Chinese text when Linux PDFium returns degenerate glyp
 
 ### 0.1.2
 
-Include the selector fix below and remove artificial space inference in native PDF text, which could split content such as `173`, `picture`, or `24个月`. The PDFium text stream is used; PDFium may still normalize source whitespace and layout.
+Include the selector fix below and remove artificial space inference in native PDF text, which could split numbers such as `173`, words such as `picture`, or Chinese phrases. The PDFium text stream is used; PDFium may still normalize source whitespace and layout.
 
 ### 0.1.1
 
