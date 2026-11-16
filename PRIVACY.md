@@ -2,6 +2,8 @@
 
 Repository: [1569197626/vision_markdown](https://github.com/1569197626/vision_markdown). Contact: [repository Issues](https://github.com/1569197626/vision_markdown/issues).
 
+The plugin does not collect personal data for analytics or an independent service. Uploaded documents may contain personal data; they are processed only for the requested conversion.
+
 The plugin reads uploaded file objects supplied by Dify and parses native text, tables, and images within the plugin process. It does not independently retain input documents or write business-content logs. Dify's own file storage, workflow-run records, and log-retention policies still apply.
 
 Images requiring recognition are sent through Dify's model invocation capability to the workspace model selected by the user. The model provider may be an internal service or a third party. Billing and data handling depend on the workspace's existing configuration and the selected provider. The plugin does not request a separate model API key, write credentials into output or logs, or automatically select an external model.

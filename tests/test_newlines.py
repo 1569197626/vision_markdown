@@ -61,7 +61,7 @@ def test_tool_text_file_markdown_and_document_outputs_are_identical():
 
 
 def test_frozen_gb18030_fixture_retains_all_twelve_paragraphs():
-    root = Path(__file__).resolve().parents[3] / "validation/vision_markdown_20261113"
+    root = Path(__file__).resolve().parent / "fixtures"
     expected = json.loads((root / "expected/09.json").read_text())
     result = engine.convert_document((root / "inputs" / expected["filename"]).read_bytes(), expected["filename"], None, Options())
     assert result.markdown == expected["source_text"].strip()

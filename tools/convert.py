@@ -12,7 +12,7 @@ from document_md.types import ExtractionError, Options
 
 def _bounded_integer(value: Any, name: str, minimum: int, maximum: int) -> int:
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not minimum <= value <= maximum or int(value) != value:
-        raise ExtractionError(f"{name} 必须是 {minimum}–{maximum} 的整数。")
+        raise ExtractionError(f"{name} must be an integer from {minimum} to {maximum}.")
     return int(value)
 
 
@@ -29,25 +29,25 @@ class ConvertTool(Tool):
 
         file = tool_parameters.get("file")
         if file is None or isinstance(file, (list, tuple, dict, str)):
-            raise ExtractionError("请传入一个 Dify 文件对象，每次仅支持单个文件。")
+            raise ExtractionError("Provide one Dify file object. Only one file is supported per request.")
         filename = getattr(file, "filename", None)
         if not isinstance(filename, str) or not filename.strip():
-            raise ExtractionError("上传文件缺少文件名，请保留文件扩展名后重新上传。")
+            raise ExtractionError("The uploaded file has no filename. Upload it again with its file extension.")
         options = Options(
-            max_pages=_bounded_integer(tool_parameters.get("max_pages", 20), "最大页数", 1, 20),
-            max_images=_bounded_integer(tool_parameters.get("max_images", 24), "最多识别图片数", 0, 24),
+            max_pages=_bounded_integer(tool_parameters.get("max_pages", 20), "Maximum pages", 1, 20),
+            max_images=_bounded_integer(tool_parameters.get("max_images", 24), "Maximum images to recognize", 0, 24),
         )
         known_size = getattr(file, "size", None)
         if isinstance(known_size, (int, float)) and known_size > options.max_file_bytes:
-            raise ExtractionError("文件超过 20 MiB 上限，请拆分后再转换。")
+            raise ExtractionError("The file exceeds the 20 MiB limit. Split it before conversion.")
         try:
             data = file.blob
         except Exception:
-            raise ExtractionError("无法读取上传文件，请检查 Dify 文件服务是否可被插件访问。") from None
+            raise ExtractionError("The uploaded file could not be read. Check whether the plugin can access the Dify file service.") from None
         if not isinstance(data, (bytes, bytearray)) or not data:
-            raise ExtractionError("上传文件为空或无法读取。")
+            raise ExtractionError("The uploaded file is empty or unreadable.")
         if len(data) > options.max_file_bytes:
-            raise ExtractionError("文件超过 20 MiB 上限，请拆分后再转换。")
+            raise ExtractionError("The file exceeds the 20 MiB limit. Split it before conversion.")
         selection = tool_parameters.get("vision_model")
         vision = DifyVision(self.session, selection, max_output_chars=options.max_output_chars) if selection else None
         try:
@@ -55,7 +55,7 @@ class ConvertTool(Tool):
         except ExtractionError:
             raise
         except Exception:
-            raise ExtractionError("文档转换失败，请检查文件格式、完整性与是否加密；本次未返回部分文档。") from None
+            raise ExtractionError("Document conversion failed. Check the file format, integrity, and encryption. No partial document was returned.") from None
         # Nothing is emitted until every page/image finishes successfully.
         yield self.create_text_message(result.markdown)
         yield self.create_blob_message(

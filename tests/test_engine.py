@@ -76,12 +76,12 @@ def test_model_errors_do_not_echo_credentials():
 
 
 def test_vision_required_only_for_images():
-    with pytest.raises(ExtractionError, match="视觉模型"):
+    with pytest.raises(ExtractionError, match="vision model"):
         engine.convert_document(png(), "a.png", None, Options())
 
 
 def test_output_limit_is_not_silent_truncation():
-    with pytest.raises(ExtractionError, match="输出限制"):
+    with pytest.raises(ExtractionError, match="output limit"):
         engine.convert_document(png(), "a.png", lambda _: VisionResult("x" * 11), Options(max_output_chars=10))
 
 
@@ -107,11 +107,11 @@ def test_image_normalization_resize_and_transparency():
 
 
 def test_pixel_and_frame_limits():
-    with pytest.raises(ExtractionError, match="像素"):
+    with pytest.raises(ExtractionError, match="pixel"):
         image_block(png((11, 11)), Options(max_image_pixels=100))
     data = io.BytesIO()
     Image.new("RGB", (5, 5), "red").save(data, "GIF", save_all=True, append_images=[Image.new("RGB", (5, 5), "blue")])
-    with pytest.raises(ExtractionError, match="多帧"):
+    with pytest.raises(ExtractionError, match="Multi-frame"):
         image_block(data.getvalue(), Options())
 
 
@@ -124,11 +124,11 @@ def test_archive_rejects_unsafe_xml_and_paths(entries):
 def test_archive_limits_and_normal_archive():
     normal = archive([("word/document.xml", "<document>hello</document>")])
     check_archive(normal, Options())
-    with pytest.raises(ExtractionError, match="解压"):
+    with pytest.raises(ExtractionError, match="expanded"):
         check_archive(normal, Options(max_archive_bytes=5))
-    with pytest.raises(ExtractionError, match="条目"):
+    with pytest.raises(ExtractionError, match="entries"):
         check_archive(normal, Options(max_archive_entries=0))
-    with pytest.raises(ExtractionError, match="压缩比"):
+    with pytest.raises(ExtractionError, match="compression ratio"):
         check_archive(archive([("large.xml", "x" * 100_000)]), Options(max_archive_ratio=10))
 
 

@@ -71,7 +71,7 @@ def test_docx_keeps_inline_image_between_native_chinese_runs_and_table():
     assert parsed.blocks[5].text == "正文结尾"
     assert len([block for block in parsed.blocks if block.kind == "image"]) == 1
     assert parsed.page_count == 1
-    assert any("显式分页" in item for item in parsed.warnings)
+    assert any("explicit page break" in item for item in parsed.warnings)
 
 
 def test_docx_table_image_is_located_and_merged_text_not_duplicated():
@@ -84,11 +84,11 @@ def test_docx_table_image_is_located_and_merged_text_not_duplicated():
     parsed = parse_office(saved(document), "table.docx", Options())
 
     assert texts(parsed).count("合并标题") == 1
-    assert "[表格图片 1]" in parsed.blocks[0].text
-    assert parsed.blocks[1].text == "### 表格图片 1"
+    assert "[Table image 1]" in parsed.blocks[0].text
+    assert parsed.blocks[1].text == "### Table image 1"
     assert parsed.blocks[2].kind == "image"
     assert parsed.blocks[2].origin.endswith("row-2/col-1")
-    assert any("占位符" in item for item in parsed.warnings)
+    assert any("placeholders" in item for item in parsed.warnings)
 
 
 def test_docx_explicit_page_breaks_and_image_limits_fail():
@@ -100,13 +100,13 @@ def test_docx_explicit_page_breaks_and_image_limits_fail():
     parsed = parse_office(data, "pages.docx", Options())
     assert parsed.page_count == 2
     assert [block.page for block in parsed.blocks] == [1, 2]
-    with pytest.raises(ExtractionError, match="页数"):
+    with pytest.raises(ExtractionError, match="page count"):
         parse_office(data, "pages.docx", replace(Options(), max_pages=1))
 
     document = Document()
     document.add_picture(io.BytesIO(png()))
     document.add_picture(io.BytesIO(png()))
-    with pytest.raises(ExtractionError, match="图片数量"):
+    with pytest.raises(ExtractionError, match="image count"):
         parse_office(saved(document), "images.docx", replace(Options(), max_images=1))
 
 
@@ -127,17 +127,17 @@ def test_docx_external_image_is_not_downloaded_and_is_reported():
 
     parsed = parse_office(rewrite_zip(saved(document), externalize), "external.docx", Options())
     assert not any(block.kind == "image" for block in parsed.blocks)
-    assert any("未联网" in warning for warning in parsed.warnings)
+    assert any("not downloaded" in warning for warning in parsed.warnings)
 
 
 def test_docx_native_text_and_table_cell_limits_fail():
     document = Document()
     document.add_paragraph("一二三四五六七八九十")
-    with pytest.raises(ExtractionError, match="原生文字"):
+    with pytest.raises(ExtractionError, match="native text"):
         parse_office(saved(document), "long.docx", replace(Options(), max_output_chars=5))
     document = Document()
     document.add_table(rows=2, cols=3)
-    with pytest.raises(ExtractionError, match="单元格"):
+    with pytest.raises(ExtractionError, match="cell"):
         parse_office(saved(document), "table.docx", replace(Options(), max_table_cells=5))
 
 
@@ -172,7 +172,7 @@ def test_docx_list_style_inheritance_and_explicit_cancellation():
         "- STYLE-BULLET 保留项目符号", "- INHERITED-NUMBER 保留列表结构", "- LEVEL-ONLY 仍继承编号",
         "DIRECT-ZERO 普通正文", "STYLE-ZERO 普通正文", "- DIRECT-OVERRIDE 直接编号优先",
     ]
-    assert sum("列表统一" in warning for warning in parsed.warnings) == 1
+    assert sum("lists are normalized" in warning for warning in parsed.warnings) == 1
 
 
 def test_pptx_sorts_shapes_recurses_groups_and_reads_table_and_cropped_image():
@@ -214,7 +214,7 @@ def test_pptx_without_images_has_only_native_blocks_and_enforces_slides():
     assert parsed.page_count == 2
     assert all(block.kind == "text" for block in parsed.blocks)
     assert "第一张" in texts(parsed) and "第二张" in texts(parsed)
-    with pytest.raises(ExtractionError, match="幻灯片数量"):
+    with pytest.raises(ExtractionError, match="slide count"):
         parse_office(data, "native.pptx", replace(Options(), max_pages=1))
 
 
@@ -233,11 +233,11 @@ def test_xlsx_keeps_identifiers_formula_status_and_embedded_image():
     output = texts(parsed)
     assert "000007" in output and "000008" in output
     assert "25.0%" in output
-    assert "[未计算公式]" in output
-    assert any("缺少缓存" in warning for warning in parsed.warnings)
+    assert "[formula not calculated]" in output
+    assert any("without cached results" in warning for warning in parsed.warnings)
     assert sum(block.kind == "image" for block in parsed.blocks) == 1
-    assert "第 4 行、第 6 列" in parsed.blocks[-1].context
-    assert parsed.blocks[-2].text == "### 图片 1（第 4 行、第 6 列）"
+    assert "row 4, column 6" in parsed.blocks[-1].context
+    assert parsed.blocks[-2].text == "### Image 1 (row 4, column 6)"
     assert parsed.page_count == 1
 
 
@@ -254,17 +254,17 @@ def test_xlsx_formula_uses_saved_cache_without_recalculation():
     parsed = parse_office(rewrite_zip(saved(document), set_cache), "cached.xlsx", Options())
     assert "| 99 |" in texts(parsed)
     assert "| 3 |" not in texts(parsed)
-    assert any("缓存是否为最新" in warning for warning in parsed.warnings)
+    assert any("whether the cache is current" in warning for warning in parsed.warnings)
 
 
 def test_xlsx_cell_limits_cover_stored_cells_and_sparse_ranges():
     document = Workbook()
     document.active.append([1, 2, 3])
-    with pytest.raises(ExtractionError, match="单元格"):
+    with pytest.raises(ExtractionError, match="cell"):
         parse_office(saved(document), "many.xlsx", replace(Options(), max_table_cells=2))
     document = Workbook()
     document.active["Z100"] = "稀疏远端值"
-    with pytest.raises(ExtractionError, match="表格范围"):
+    with pytest.raises(ExtractionError, match="table range"):
         parse_office(saved(document), "sparse.xlsx", replace(Options(), max_table_cells=50))
 
 
@@ -278,7 +278,7 @@ def test_xlsx_trims_style_only_tail_but_keeps_internal_blanks_and_image_anchor()
     parsed = parse_office(saved(document), "styled-tail.xlsx", replace(Options(), max_table_cells=9))
     table = next(block.text for block in parsed.blocks if block.kind == "text" and block.text.startswith("|"))
     assert table == "| 开始 |  |  |\n| --- | --- | --- |\n|  |  |  |\n|  |  | 结尾 |"
-    assert parsed.blocks[-2].text == "### 图片 1（第 20 行、第 12 列）"
+    assert parsed.blocks[-2].text == "### Image 1 (row 20, column 12)"
     assert parsed.blocks[-1].kind == "image"
 
 
@@ -290,9 +290,9 @@ def test_xlsx_trim_keeps_false_zero_and_formula_and_stored_cell_limit():
     sheet["Z100"].fill = PatternFill(fill_type="solid", fgColor="FFFFFF")
     data = saved(document)
     parsed = parse_office(data, "values.xlsx", Options())
-    assert "| FALSE | 0 | [未计算公式] |" in texts(parsed)
+    assert "| FALSE | 0 | [formula not calculated] |" in texts(parsed)
     # The preflight still counts serialized style-only cells before loading.
-    with pytest.raises(ExtractionError, match="单元格"):
+    with pytest.raises(ExtractionError, match="cell"):
         parse_office(data, "values.xlsx", replace(Options(), max_table_cells=6))
 
 
@@ -307,7 +307,7 @@ def test_xlsx_style_trimming_does_not_bypass_merged_cell_allocation_limit(monkey
         pytest.fail("oversized merged ranges must fail before workbook allocation")
 
     monkeypatch.setattr(openpyxl, "load_workbook", must_not_load)
-    with pytest.raises(ExtractionError, match="合并单元格"):
+    with pytest.raises(ExtractionError, match="merged-cell"):
         parse_office(data, "merged.xlsx", replace(Options(), max_table_cells=50))
 
 
@@ -335,7 +335,7 @@ def test_xlsx_common_currency_formats_keep_units_grouping_precision_and_sign(val
     cell.value, cell.number_format = value, number_format
     parsed = parse_office(saved(document), "currency.xlsx", Options())
     assert f"| {display} |" in texts(parsed)
-    assert not any("自定义数字格式" in warning for warning in parsed.warnings)
+    assert not any("custom number formats" in warning for warning in parsed.warnings)
 
 
 def test_xlsx_complex_number_format_keeps_raw_value_and_warns():
@@ -345,7 +345,7 @@ def test_xlsx_complex_number_format_keeps_raw_value_and_warns():
     cell.number_format = '_($* #,##0.00_);_($* (#,##0.00);_($* "-"??_)'
     parsed = parse_office(saved(document), "accounting.xlsx", Options())
     assert "| 1250.5 |" in texts(parsed)
-    assert any("自定义数字格式" in warning for warning in parsed.warnings)
+    assert any("custom number formats" in warning for warning in parsed.warnings)
 
 
 def test_xlsx_sheet_limit_and_hidden_sheet_are_explicit():
@@ -357,8 +357,8 @@ def test_xlsx_sheet_limit_and_hidden_sheet_are_explicit():
     data = saved(document)
     parsed = parse_office(data, "hidden.xlsx", Options())
     assert "隐藏内容" in texts(parsed)
-    assert any("隐藏工作表" in warning for warning in parsed.warnings)
-    with pytest.raises(ExtractionError, match="工作表数量"):
+    assert any("hidden worksheet" in warning for warning in parsed.warnings)
+    with pytest.raises(ExtractionError, match="worksheet count"):
         parse_office(data, "hidden.xlsx", replace(Options(), max_pages=1))
 
 
@@ -372,7 +372,7 @@ def test_xlsx_unsupported_image_drop_is_reported_to_caller():
 
     parsed = parse_office(rewrite_zip(saved(document), corrupt_image), "image.xlsx", Options())
     assert "保留的文字" in texts(parsed)
-    assert any("可能已跳过" in warning for warning in parsed.warnings)
+    assert any("may have been skipped" in warning for warning in parsed.warnings)
 
 
 def test_actual_docx_conversion_calls_model_for_each_image_only_and_keeps_labels():
@@ -392,14 +392,14 @@ def test_actual_docx_conversion_calls_model_for_each_image_only_and_keeps_labels
     result = convert_document(saved(document), "model.docx", vision, Options())
     assert len(calls) == result.stats["vision_calls"] == 1
     assert result.markdown.count("原生中文无需视觉模型") == 1
-    assert "[表格图片 1]" in result.markdown
-    assert "### 表格图片 1\n\n图片内容：红蓝色块" in result.markdown
+    assert "[Table image 1]" in result.markdown
+    assert "### Table image 1\n\n图片内容：红蓝色块" in result.markdown
 
 
 def test_rejects_non_ooxml_invalid_archives_and_oversize_file():
-    with pytest.raises(ExtractionError, match="仅支持"):
+    with pytest.raises(ExtractionError, match="Only"):
         parse_office(b"", "old.doc", Options())
-    with pytest.raises(ExtractionError, match="压缩包"):
+    with pytest.raises(ExtractionError, match="archive"):
         parse_office(b"not a zip", "bad.docx", Options())
-    with pytest.raises(ExtractionError, match="文件超过"):
+    with pytest.raises(ExtractionError, match="file exceeds"):
         parse_office(b"1234", "large.xlsx", replace(Options(), max_file_bytes=3))

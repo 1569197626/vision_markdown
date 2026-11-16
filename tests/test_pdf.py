@@ -173,7 +173,7 @@ def test_supported_column_gutter_reads_left_column_then_right_with_spanning_titl
     expected_order = ["LEFT-1", "LEFT-2", "LEFT-3", "RIGHT-1", "RIGHT-2", "RIGHT-3", "FULL PAGE FOOTER"]
     assert [text.index(marker) for marker in expected_order] == sorted(text.index(marker) for marker in expected_order)
     assert text.startswith("A full width heading")
-    assert any("阅读顺序" in warning for warning in result.warnings)
+    assert any("Reading order" in warning for warning in result.warnings)
 
 
 def test_short_aligned_record_rows_keep_key_value_association():
@@ -262,7 +262,7 @@ def test_vertical_headers_do_not_rotate_horizontal_page_or_split_words():
     assert result.blocks[1].origin == "pdf-native-table"
     assert result.blocks[1].text == (
         "| " + " | ".join(headers) + " |\n| --- | --- | --- | --- |\n| 12 | 34 | 56 | 78 |")
-    assert any("多方向文字" in warning for warning in result.warnings)
+    assert any("text in multiple directions" in warning for warning in result.warnings)
 
 
 @pytest.mark.parametrize("angle", [90, 180, 270])
@@ -302,7 +302,7 @@ def test_complete_native_grid_preserves_cells_and_uses_no_vision():
     assert len(result.blocks) == 1
     assert result.blocks[0].origin == "pdf-native-table"
     assert result.blocks[0].text == "| Item | Value |\n| --- | --- |\n| Part A | 00123 |\n| Part B | -12.50 kg |"
-    assert any("完整原生网格" in warning for warning in result.warnings)
+    assert any("complete native grid" in warning for warning in result.warnings)
 
 
 @pytest.mark.parametrize("variant", ["incomplete", "overlay", "annotation"])
@@ -313,11 +313,11 @@ def test_ambiguous_or_illustrated_grid_does_not_invent_native_table(variant):
     text = "\n".join(block.text for block in result.blocks if block.kind == "text")
     for expected in ["Item", "Value", "Part A", "00123", "Part B", "-12.50 kg"]:
         assert text.count(expected) == 1
-    assert any("图表结构" in warning for warning in result.warnings)
+    assert any("chart structure" in warning for warning in result.warnings)
 
 
 def test_native_grid_respects_document_cell_budget_before_rendering():
-    with pytest.raises(ExtractionError, match="单元格"):
+    with pytest.raises(ExtractionError, match="cell"):
         parse_pdf(_pdf(_draw_native_grid), "native-table.pdf", Options(max_table_cells=5))
 
 
@@ -394,13 +394,13 @@ def test_ocr_layer_residual_diagram_is_inserted_at_its_remaining_position():
         "NATIVE HEADING", "NATIVE BEFORE FIGURE", "PAGE FOOTER"]
     image = next(block for block in result.blocks if block.kind == "image")
     assert image.bbox == pytest.approx((60, 250, 160, 350), abs=1.)
-    assert any("纯白边缘" in warning for warning in result.warnings)
+    assert any("Pure-white edges" in warning for warning in result.warnings)
 
 
 def test_ocr_layer_with_only_masked_text_does_not_call_vision_again():
     result = parse_pdf(_ocr_layer_document("blank"), "ocr-only.pdf", Options(max_images=0))
     assert all(block.kind == "text" for block in result.blocks)
-    assert any("仅剩空白" in warning for warning in result.warnings)
+    assert any("is blank after removing" in warning for warning in result.warnings)
 
 
 def test_crop_never_thresholds_away_faint_residual_content():
@@ -416,7 +416,7 @@ def test_nonwhite_scan_background_is_retained_with_position_warning():
     result = parse_pdf(_ocr_layer_document("paper"), "paper-scan.pdf", Options())
     image = next(block for block in result.blocks if block.kind == "image")
     assert image.bbox == (0., 0., 400., 600.)
-    assert any("图文插入位置需人工复核" in warning for warning in result.warnings)
+    assert any("Review text/image insertion positions manually" in warning for warning in result.warnings)
 
 
 @pytest.mark.parametrize("tight_height", [0., .013977])
@@ -449,7 +449,7 @@ def test_degraded_cjk_tight_bounds_preserve_unicode_and_image_order(monkeypatch,
     assert result.blocks[2].text == "图后文字"
     assert loose_calls
     assert all(block.bbox[3] > block.bbox[1] for block in result.blocks)
-    assert any("字形边界退化" in warning for warning in result.warnings)
+    assert any("degenerate glyph bounds" in warning for warning in result.warnings)
 
 
 def test_unicode_with_unusable_tight_and_loose_bounds_fails_explicitly(monkeypatch):
@@ -461,7 +461,7 @@ def test_unicode_with_unusable_tight_and_loose_bounds_fails_explicitly(monkeypat
 
     monkeypatch.setattr(pdfium.PdfTextPage, "get_charbox", invalid_bounds)
     data = _pdf(lambda pdf: (pdf.drawString(30, 550, "Decodable Unicode"), pdf.showPage()))
-    with pytest.raises(ExtractionError, match="字形与字体边界均无法定位"):
+    with pytest.raises(ExtractionError, match="neither glyph nor font bounds can be located"):
         parse_pdf(data, "bad-bounds.pdf", Options())
 
 
@@ -492,7 +492,7 @@ def test_valid_glyphs_outside_cropbox_do_not_trigger_loose_fallback(monkeypatch)
     monkeypatch.setattr(pdfium.PdfTextPage, "get_charbox", tight_only)
     result = parse_pdf(output.getvalue(), "crop.pdf", Options())
     assert [block.text for block in result.blocks] == ["INSIDE CROP"]
-    assert not any("字形边界退化" in warning for warning in result.warnings)
+    assert not any("degenerate glyph bounds" in warning for warning in result.warnings)
 
 
 @pytest.mark.parametrize("offset", [0., .17])
@@ -518,7 +518,7 @@ def test_image_crop_masks_native_overlay_before_vision(offset):
     # (which may itself fall in an inter-character gap).
     assert any(image.getpixel((px, y)) == (255, 255, 255) for px in range(x - 10, x + 10))
     assert image.getpixel((image.width - 3, image.height - 3)) == (255, 0, 0)
-    assert any("遮罩原生文字" in warning for warning in result.warnings)
+    assert any("was masked to avoid duplicates" in warning for warning in result.warnings)
     image.close()
 
 
@@ -561,7 +561,7 @@ def test_nested_form_image_is_cropped_in_page_coordinates():
     result = parse_pdf(_pdf(draw), "form.pdf", Options())
     assert [block.kind for block in result.blocks] == ["text", "image", "text"]
     assert result.blocks[1].bbox == pytest.approx((60, 180, 260, 300))
-    assert any("组合图形" in warning for warning in result.warnings)
+    assert any("grouped graphics" in warning for warning in result.warnings)
 
 
 def test_rotated_cropbox_keeps_image_and_glyph_coordinates_consistent():
@@ -613,7 +613,7 @@ def test_embedded_image_pixel_limit_is_checked_before_render(monkeypatch):
         pytest.fail("Oversized embedded image reached PDFium rendering")
 
     monkeypatch.setattr(pdfium.PdfPage, "render", should_not_render)
-    with pytest.raises(ExtractionError, match="像素"):
+    with pytest.raises(ExtractionError, match="pixel"):
         parse_pdf(_pdf(draw), "large-image.pdf", replace(Options(), max_image_pixels=100))
 
 
@@ -626,7 +626,7 @@ def test_zero_vision_budget_allows_native_pdf_but_rejects_image():
         pdf.drawImage(ImageReader(_picture()), 30, 300, 150, 80)
         pdf.showPage()
 
-    with pytest.raises(ExtractionError, match="图片数量"):
+    with pytest.raises(ExtractionError, match="image count"):
         parse_pdf(_pdf(draw), "scan.pdf", replace(Options(), max_images=0))
 
 
@@ -648,11 +648,11 @@ def test_invalid_pdf_raises(data):
 
 
 def test_blank_and_encrypted_pdf_raise():
-    with pytest.raises(ExtractionError, match="没有可提取"):
+    with pytest.raises(ExtractionError, match="no content to extract"):
         parse_pdf(_pdf(lambda pdf: pdf.showPage()), "blank.pdf", Options())
     encrypted = _pdf(lambda pdf: (pdf.drawString(30, 500, "secret"), pdf.showPage()),
                      encrypt=StandardEncryption("", ownerPassword="owner"))
-    with pytest.raises(ExtractionError, match="加密"):
+    with pytest.raises(ExtractionError, match="Encrypted"):
         parse_pdf(encrypted, "encrypted.pdf", Options())
 
 

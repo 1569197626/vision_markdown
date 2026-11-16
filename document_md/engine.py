@@ -23,18 +23,18 @@ def _decode(data: bytes) -> tuple[str, list[str]]:
     except UnicodeDecodeError:
         try:
             text = data.decode("gb18030")
-            notes = ["文本按 GB18030 解码；若出现乱码，请将源文件另存为 UTF-8。"]
+            notes = ["Text was decoded as GB18030. If it appears garbled, resave the source as UTF-8."]
         except UnicodeDecodeError as exc:
-            raise ExtractionError("文本编码不受支持，请另存为 UTF-8。") from exc
+            raise ExtractionError("The text encoding is unsupported. Resave the file as UTF-8.") from exc
     if "\x00" in text:
-        raise ExtractionError("文本文件包含二进制内容。")
+        raise ExtractionError("The text file contains binary content.")
     return text, notes
 
 
 def _parse_text(data: bytes, filename: str, extension: str, options: Options) -> ParsedDocument:
     text, notes = _decode(data)
     if len(text) > options.max_output_chars:
-        raise ExtractionError("文本过长，请拆分后转换。")
+        raise ExtractionError("The text is too long. Split it before conversion.")
     if extension == ".csv":
         try:
             try:
@@ -46,26 +46,26 @@ def _parse_text(data: bytes, filename: str, extension: str, options: Options) ->
             for row in csv.reader(io.StringIO(text, newline=""), dialect, strict=True):
                 cells += len(row)
                 if cells > options.max_table_cells:
-                    raise ExtractionError("CSV 单元格数量超出限制，请拆分文件。")
+                    raise ExtractionError("The CSV cell count exceeds the limit. Split the file.")
                 rows.append(row)
             if rows and max(map(len, rows)) * len(rows) > options.max_table_cells:
-                raise ExtractionError("CSV 表格展开后过大，请整理列数或拆分文件。")
+                raise ExtractionError("The expanded CSV table is too large. Reduce the column count or split the file.")
             text = markdown_table(rows)
         except csv.Error as exc:
-            raise ExtractionError("CSV 格式错误或单元格过长，请重新导出。") from exc
-        notes.append("CSV 第一行用作 Markdown 表头；公式按原始文本保留，不执行。")
+            raise ExtractionError("The CSV format is invalid or a cell is too long. Export it again.") from exc
+        notes.append("The first CSV row is used as the Markdown header. Formulas are retained as original text and are not executed.")
     return ParsedDocument(filename=filename, format=extension[1:], blocks=[Block(kind="text", text=text, origin="body")], warnings=notes)
 
 
 def parse_document(data: bytes, filename: str, options: Options) -> ParsedDocument:
     if not isinstance(data, bytes) or not data:
-        raise ExtractionError("文件为空。")
+        raise ExtractionError("The file is empty.")
     if len(data) > options.max_file_bytes:
-        raise ExtractionError(f"文件超过 {options.max_file_bytes // (1024 * 1024)} MiB，请拆分后转换。")
+        raise ExtractionError(f"The file exceeds {options.max_file_bytes // (1024 * 1024)} MiB. Split it before conversion.")
     safe_name = PurePosixPath(filename.replace("\\", "/")).name
     extension = PurePosixPath(safe_name).suffix.lower()
     if extension not in SUPPORTED_EXTENSIONS:
-        raise ExtractionError(f"不支持 {extension or '无扩展名'} 文件。旧版 .doc/.ppt/.xls 请先另存为 .docx/.pptx/.xlsx。")
+        raise ExtractionError(f"Files with extension {extension or 'none'} are not supported. Resave legacy .doc/.ppt/.xls files as .docx/.pptx/.xlsx.")
     if extension == ".pdf":
         from .pdf import parse_pdf
         return parse_pdf(data, safe_name, options)
@@ -83,15 +83,15 @@ def convert_document(data: bytes, filename: str, vision: Callable[[Block], Visio
     native_chars = sum(len(block.text) for block in parsed.blocks if block.kind == "text")
     # Complete structural validation before any potentially billable model call.
     if len(image_blocks) > options.max_images:
-        raise ExtractionError(f"图片数量超过 {options.max_images}，请拆分文档。")
+        raise ExtractionError(f"The image count exceeds {options.max_images}. Split the document.")
     if sum(len(block.image) for block in image_blocks) > options.max_total_image_bytes:
-        raise ExtractionError("文档内图片总量超出限制，请拆分文档。")
+        raise ExtractionError("The total document image size exceeds the limit. Split the document.")
     if parsed.page_count > options.max_pages:
-        raise ExtractionError(f"页数超过 {options.max_pages}，请拆分文档。")
+        raise ExtractionError(f"The page count exceeds {options.max_pages}. Split the document.")
     if native_chars > options.max_output_chars:
-        raise ExtractionError("提取文字超出输出限制，请拆分文档。")
+        raise ExtractionError("The extracted text exceeds the output limit. Split the document.")
     if image_blocks and vision is None:
-        raise ExtractionError("文档包含图片或扫描页，请选择已配置的 Dify 视觉模型。")
+        raise ExtractionError("The document contains images or scanned pages. Select a configured Dify vision model.")
 
     parts: list[str] = []
     chars = 0
@@ -107,12 +107,12 @@ def convert_document(data: bytes, filename: str, vision: Callable[[Block], Visio
                 raise
             except Exception as exc:
                 # Keep model messages/credentials out of the end-user error.
-                raise ExtractionError(f"图片识别失败（位置：{block.origin or block.page or '未知'}），未输出不完整文件。") from exc
+                raise ExtractionError(f"Image recognition failed (location: {block.origin or block.page or 'unknown'}). No incomplete file was returned.") from exc
             calls += 1
             if not isinstance(result, VisionResult) or result.truncated:
-                raise ExtractionError("视觉模型输出被截断或无效，请拆分文档或增加模型输出上限。")
+                raise ExtractionError("The vision model output is truncated or invalid. Split the document or increase the model output limit.")
             if not isinstance(result.markdown, str) or not result.markdown.strip():
-                raise ExtractionError("视觉模型返回空内容，未输出不完整文件。")
+                raise ExtractionError("The vision model returned empty content. No incomplete file was returned.")
             content = result.markdown.strip()
             usages.append(result.usage)
         # Use the same newline convention for native text and vision output.
@@ -122,14 +122,14 @@ def convert_document(data: bytes, filename: str, vision: Callable[[Block], Visio
         if content:
             chars += len(content) + (2 if parts else 0)
             if chars > options.max_output_chars:
-                raise ExtractionError("Markdown 超出输出限制，请拆分文档。")
+                raise ExtractionError("Markdown exceeds the output limit. Split the document.")
             parts.append(content)
     markdown = "\n\n".join(parts)
     if not markdown:
-        raise ExtractionError("文档未提取到可用内容。")
+        raise ExtractionError("No usable content could be extracted from the document.")
     notes = list(dict.fromkeys(parsed.warnings))
     if calls:
-        notes.append("图片内容由所选视觉模型生成；文字、数字、公式和图表关系需要抽样核对。")
+        notes.append("Image content was generated by the selected vision model. Spot-check text, numbers, formulas, and chart relationships.")
     metadata = {"filename": parsed.filename, "format": parsed.format, "page_count": parsed.page_count, "image_count": len(image_blocks), "native_chars": native_chars}
     # Same field shape as the official Dify Extractor's Document output.
     document = {"page_content": markdown, "metadata": metadata, "provider": "dify", "vector": None, "children": None}

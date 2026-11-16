@@ -2,15 +2,21 @@
 
 [Simplified Chinese](README.zh_Hans.md) · [Repository](https://github.com/1569197626/vision_markdown) · [Issues and contact](https://github.com/1569197626/vision_markdown/issues) · [Privacy](PRIVACY.md)
 
-`ninebot/vision_markdown:0.1.6` combines native text, tables, and image recognition results into Markdown in document order. Images are processed through a vision model already configured in the Dify workspace. Dependencies do not include Docling, PyTorch, Triton, NVIDIA CUDA, or local model weights.
+`ninebot/vision_markdown:0.1.7` combines native text, tables, and image recognition results into Markdown in document order. Images are processed through a vision model already configured in the Dify workspace. Dependencies do not include Docling, PyTorch, Triton, NVIDIA CUDA, or local model weights.
 
 This plugin produces document conversions that users can check against the source. Review the text, tables, and charts in representative business files. Successful installation or passing local tests does not establish OCR accuracy for arbitrary documents.
 
+## Downloads
+
+- [Original 0.1.6 GitHub release](https://github.com/1569197626/vision_markdown/releases/tag/v0.1.6): unchanged original package using SDK 0.6.0.
+- [0.1.7 Marketplace submission package](https://github.com/1569197626/vision_markdown/raw/refs/heads/main/packages/vision_markdown-0.1.7.difypkg): SDK 0.9.0, English diagnostics and Marketplace metadata. Listing is pending review.
+- [0.1.7 SHA256 checksum](https://github.com/1569197626/vision_markdown/blob/main/packages/vision_markdown-0.1.7.sha256).
+
 ## Usage
 
-Target environment: Dify 1.17.1, plugin-daemon 0.6.10, and Python 3.12. The interfaces were checked against those versions and Dify SDK 0.6.0. The `model-selector` uses the `llm&vision` scope to select an existing workspace vision model; no additional model API key is required in this plugin.
+Target environment: Dify 1.17.1, plugin-daemon 0.6.10, and Python 3.12. The interfaces were checked against those versions and Dify SDK 0.9.0. The `model-selector` uses the `llm&vision` scope to select an existing workspace vision model; no additional model API key is required in this plugin.
 
-English tool labels and documentation are available. Runtime diagnostics, including errors and warnings, are currently in Chinese; the plugin is not fully localized into English.
+English tool labels, documentation, errors, and warnings are provided. Document content retains its original language.
 
 1. Install the `.difypkg` through Dify's plugin installation from a local file, following your workspace's installation policy. If the environment rejects an unsigned package, keep the error for diagnosis. This project does not change signature verification settings.
 2. Create a separate test workflow: file input → **Vision Markdown** → output.
@@ -54,7 +60,13 @@ Exceeding a limit produces an explicit error. Images are recognized sequentially
 
 The model receives only the images that need recognition and fixed conversion instructions, without the full native text. Images are sent to the selected model's server and may incur model charges. The plugin does not execute instructions found in documents, run Office macros or formulas, or proactively visit document links. See [Privacy](PRIVACY.md).
 
-## Changes through 0.1.6
+## Changes through 0.1.7
+
+### 0.1.7
+
+Use Dify SDK 0.9.0 to meet the current Marketplace dependency floor. Add source-repository and maintainer-contact metadata, English runtime diagnostics, bilingual documentation, and portable packaging. The conversion algorithms, limits, newline normalization, model permissions, and output fields are unchanged. Generated Markdown labels (for example Footnote, Header, Slide and chart/table headings), warnings, errors, and model-context wording are now English; source document content is not translated. Generated output text therefore differs from 0.1.6, and longer labels can reach existing character limits sooner. Real-model responses may also vary with translated context wording. Version 0.1.6 remains available as its exact original GitHub release binary.
+
+SDK 0.9.0 has been tested locally with synthetic inputs and model substitutes. The original 0.1.6 was validated on self-hosted Dify 1.17.1; the new 0.1.7 has not yet been installed on that live environment or tested on Dify Cloud.
 
 ### 0.1.6
 
@@ -90,7 +102,7 @@ Run these commands from the repository root, which contains `manifest.yaml` and 
 uv venv --python 3.12 .venv
 uv pip install --python .venv/bin/python --only-binary=:all: -r requirements-dev.txt
 .venv/bin/python -m pytest tests -q
-.venv/bin/python scripts/package.py --cli /path/to/dify-plugin-cli --output ./dist/vision_markdown-0.1.6.difypkg
+.venv/bin/python scripts/package.py --cli /path/to/dify-plugin-cli --output ./dist/vision_markdown-0.1.7.difypkg
 ```
 
 Replace `/path/to/dify-plugin-cli` with an official CLI executable. The explicit `--output` keeps release output inside this repository. The packaging script stages an allowlist of runtime code, icons, and documentation for the official CLI; it excludes `.venv`, caches, tests, and local credentials. Dify downloads dependencies during installation; Python libraries are not bundled.
@@ -106,3 +118,6 @@ Unit tests use synthetic documents and model substitutes. They cover native/scan
 - [Official packaging CLI 0.6.10](https://github.com/langgenius/dify-plugin-daemon/releases/tag/0.6.10)
 
 For questions or reproducible bug reports, use [repository Issues](https://github.com/1569197626/vision_markdown/issues). Do not include credentials or confidential source documents in public reports.
+
+
+Maintainer contact: 1569197626@qq.com.

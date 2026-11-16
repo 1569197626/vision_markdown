@@ -1,4 +1,4 @@
-version: 0.1.6
+version: 0.1.7
 type: plugin
 author: ninebot
 name: vision_markdown
@@ -33,3 +33,5 @@ privacy: PRIVACY.md
 tags:
   - rag
   - productivity
+repo: https://github.com/1569197626/vision_markdown
+contact: 1569197626@qq.com

@@ -137,7 +137,7 @@ def test_native_file_needs_no_model_and_emits_markdown_file_and_variables():
 
 def test_image_without_model_fails_before_any_output():
     messages = _tool()._invoke({"file": SimpleNamespace(filename="scan.png", blob=_image())})
-    with pytest.raises(ExtractionError, match="视觉模型"):
+    with pytest.raises(ExtractionError, match="vision model"):
         next(messages)
 
 

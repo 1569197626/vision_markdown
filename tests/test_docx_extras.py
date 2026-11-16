@@ -88,10 +88,10 @@ def test_shared_header_footer_output_once_with_all_section_scopes():
     parsed = parse_office(data, "sections.docx", Options())
     result = text(parsed)
     assert result.count("HEADER-CONTENT") == result.count("FOOTER-CONTENT") == 1
-    assert "第1节/普通、第2节/普通" in result
+    assert "Section 1/default、Section 2/default" in result
     assert result.index("BODY-FIRST") < result.index("BODY-LAST") < result.index("HEADER-CONTENT")
     assert all(block.page is None for block in parsed.blocks if block.origin.startswith(("docx/header/", "docx/footer/")))
-    assert any("共享内容仅提取一次" in warning for warning in parsed.warnings)
+    assert any("shared content is extracted once" in warning for warning in parsed.warnings)
 
 
 def test_only_enabled_first_and_even_stories_are_extracted():
@@ -107,7 +107,7 @@ def test_only_enabled_first_and_even_stories_are_extracted():
     document.settings.odd_and_even_pages_header_footer = True
     result = text(parse_office(save(document), "enabled.docx", Options()))
     assert all(value in result for value in ["DEFAULT-HEADER", "FIRST-HEADER", "EVEN-HEADER"])
-    assert "第1节/首页" in result and "第1节/偶数页" in result
+    assert "Section 1/first page" in result and "Section 1/even pages" in result
 
 
 def test_later_section_can_enable_inherited_first_header_and_override_default():
@@ -123,7 +123,7 @@ def test_later_section_can_enable_inherited_first_header_and_override_default():
     parsed = parse_office(save(document), "inherit.docx", Options())
     result = text(parsed)
     assert all(result.count(value) == 1 for value in ["FIRST-DEFAULT", "SECOND-DEFAULT", "INHERITED-FIRST"])
-    assert "第2节/首页" in result and "第1节/首页" not in result
+    assert "Section 2/first page" in result and "Section 1/first page" not in result
 
 
 def test_notes_keep_inline_references_first_reference_order_and_repeat_body_once():
@@ -140,8 +140,8 @@ def test_notes_keep_inline_references_first_reference_order_and_repeat_body_once
     })
     parsed = parse_office(data, "notes.docx", Options())
     result = text(parsed)
-    assert "BEFORE【尾注 7】MIDDLE【脚注 2】AFTER" in result
-    assert result.count("【脚注 2】") == 2
+    assert "BEFORE【Endnote 7】MIDDLE【Footnote 2】AFTER" in result
+    assert result.count("【Footnote 2】") == 2
     assert result.count("FOOTNOTE-TEXT") == result.count("ENDNOTE-TEXT") == 1
     assert result.index("ENDNOTE-TEXT") < result.index("FOOTNOTE-TEXT")
     assert all(value not in result for value in ["DO-NOT-READ", "UNREFERENCED-TEXT"])
@@ -160,9 +160,9 @@ def test_table_reference_and_note_table_are_preserved():
     data = with_notes(save(document), {"footnote": [(1, para("NOTE-LEAD") + note_table._tbl.xml)]})
     parsed = parse_office(data, "table-notes.docx", Options())
     result = text(parsed)
-    assert "| Serial 00123 | 【脚注 1】 |" in result
+    assert "| Serial 00123 | 【Footnote 1】 |" in result
     assert "| Voltage | 48 V |" in result
-    with pytest.raises(ExtractionError, match="单元格"):
+    with pytest.raises(ExtractionError, match="cell"):
         parse_office(data, "table-notes.docx", replace(Options(), max_table_cells=5))
 
 
@@ -178,7 +178,7 @@ def test_headers_and_note_images_use_their_own_relationships_and_limits():
     assert len(images) == 2
     assert images[0].origin.startswith("docx/header/") and images[1].origin.startswith("docx/footnote-1/")
     assert all(block.page is None for block in images)
-    with pytest.raises(ExtractionError, match="图片数量"):
+    with pytest.raises(ExtractionError, match="image count"):
         parse_office(data, "images.docx", replace(Options(), max_images=1))
 
 
@@ -189,12 +189,12 @@ def test_missing_ambiguous_and_invalid_note_references_are_explicit():
     data = with_notes(save(document), {"footnote": [(2, para("AMBIGUOUS-A")), (2, para("AMBIGUOUS-B"))]})
     parsed = parse_office(data, "missing.docx", Options())
     result = text(parsed)
-    assert "【脚注 5：正文缺失或引用不唯一】" in result
-    assert "【脚注 2：正文缺失或引用不唯一】" in result
-    assert "【脚注引用无效】" in result
+    assert "【Footnote 5: body missing or reference not unique】" in result
+    assert "【Footnote 2: body missing or reference not unique】" in result
+    assert "【Footnote reference invalid】" in result
     assert "AMBIGUOUS-A" not in result and "AMBIGUOUS-B" not in result
-    assert any("重复ID" in warning for warning in parsed.warnings)
-    assert any("无效引用ID" in warning for warning in parsed.warnings)
+    assert any("duplicate IDs" in warning for warning in parsed.warnings)
+    assert any("invalid reference ID" in warning for warning in parsed.warnings)
 
 
 def test_note_cycles_do_not_expand_forever_and_auxiliary_page_breaks_do_not_add_pages():
@@ -204,19 +204,19 @@ def test_note_cycles_do_not_expand_forever_and_auxiliary_page_breaks_do_not_add_
     data = with_notes(save(document), {"footnote": [(1, children)]})
     parsed = parse_office(data, "cycle.docx", replace(Options(), max_pages=1))
     assert text(parsed).count("CYCLE-NOTE") == 1 and parsed.page_count == 1
-    assert any("分页标记不计入" in warning for warning in parsed.warnings)
+    assert any("excluded from the body page count" in warning for warning in parsed.warnings)
 
 
 def test_supplemental_text_counts_toward_output_budget():
     document = Document()
     document.sections[0].header.paragraphs[0].text = "H" * 100
     document.add_paragraph("BODY")
-    with pytest.raises(ExtractionError, match="原生文字"):
+    with pytest.raises(ExtractionError, match="native text"):
         parse_office(save(document), "limit.docx", replace(Options(), max_output_chars=90))
     document = Document()
     reference(document.add_paragraph("BODY"), "footnote", 1)
     data = with_notes(save(document), {"footnote": [(1, para("N" * 100))]})
-    with pytest.raises(ExtractionError, match="原生文字"):
+    with pytest.raises(ExtractionError, match="native text"):
         parse_office(data, "note-limit.docx", replace(Options(), max_output_chars=90))
 
 
@@ -225,7 +225,7 @@ def test_no_headers_are_created_when_none_exist():
     document.add_paragraph("BODY-ONLY")
     parsed = parse_office(save(document), "plain.docx", Options())
     assert [block.text for block in parsed.blocks] == ["BODY-ONLY"]
-    assert not any("页眉/页脚按" in warning for warning in parsed.warnings)
+    assert not any("headers/footers are collected" in warning for warning in parsed.warnings)
 
 
 def test_external_header_and_note_relationships_are_not_read():
@@ -248,16 +248,16 @@ def test_external_header_and_note_relationships_are_not_read():
     parsed = parse_office(buffer.getvalue(), "external-stories.docx", Options())
     result = text(parsed)
     assert "LOCAL-HEADER" not in result and "LOCAL-NOTE" not in result
-    assert "【脚注 1：正文缺失或引用不唯一】" in result
-    assert any("页眉/页脚为外部关系" in w for w in parsed.warnings)
-    assert any("附注为外部关系" in w for w in parsed.warnings)
+    assert "【Footnote 1: body missing or reference not unique】" in result
+    assert any("header/footer has an external relationship" in w for w in parsed.warnings)
+    assert any("note has an external relationship" in w for w in parsed.warnings)
 
 
 def test_unique_note_reference_count_is_bounded_before_expanding_bodies():
     document = Document()
     for note_id in range(3):
         reference(document.add_paragraph("REF"), "footnote", note_id)
-    with pytest.raises(ExtractionError, match="引用数量"):
+    with pytest.raises(ExtractionError, match="reference count"):
         parse_office(save(document), "note-limit.docx", replace(Options(), max_table_cells=2))
 
 
@@ -269,7 +269,7 @@ def test_note_cache_counts_unreferenced_records_and_combines_both_note_kinds():
         "footnote": [(1, para("REFERENCED")), (2, para("UNREFERENCED"))],
         "endnote": [(1, para("REFERENCED-END")), (2, para("UNREFERENCED-END"))],
     })
-    with pytest.raises(ExtractionError, match="附注记录数量"):
+    with pytest.raises(ExtractionError, match="note record count"):
         parse_office(data, "note-records.docx", replace(Options(), max_table_cells=3))
 
 
@@ -302,12 +302,12 @@ def test_long_note_reference_chain_is_processed_once_without_scanning_seen_keys(
 
 
 def test_original_frozen_docx_fixture_recovers_header_and_real_footnote():
-    project = Path(__file__).resolve().parents[3]
-    fixture = project / "validation/vision_markdown_20261113/inputs/05_中英文正文表格与图片.docx"
+    project = Path(__file__).resolve().parent / "fixtures"
+    fixture = project / "inputs/05_text_table_image.docx"
     parsed = parse_office(fixture.read_bytes(), fixture.name, Options())
     result = text(parsed)
     assert result.count("HEADER-05 维护资料 Maintenance reference") == 1
     assert result.count("FOOTNOTE-05 脚注内容 Footnote boundary check") == 1
-    assert "脚注引用用于检查正文与页脚能力边界【脚注 1】" in result
+    assert "脚注引用用于检查正文与页脚能力边界【Footnote 1】" in result
     assert result.count("REPEAT-05") == 2
-    assert not any("页眉和页脚未提取" in w or "脚注、尾注和批注未提取" in w for w in parsed.warnings)
+    assert not any("headers and footers are not extracted" in w or "footnotes, endnotes, and comments are not extracted" in w for w in parsed.warnings)

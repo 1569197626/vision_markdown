@@ -61,12 +61,12 @@ def _display_box(page, box: Box, width: float, height: float) -> Box:
         dx, dy = ctypes.c_int(), ctypes.c_int()
         if not raw.FPDF_PageToDevice(page, 0, 0, device_w, device_h, 0,
                                      x, y, ctypes.byref(dx), ctypes.byref(dy)):
-            raise ExtractionError("PDF 页面坐标转换失败。")
+            raise ExtractionError("PDF page coordinate conversion failed.")
         points.append((dx.value * width / device_w, dy.value * height / device_h))
     result = (max(0., min(p[0] for p in points)), max(0., min(p[1] for p in points)),
               min(width, max(p[0] for p in points)), min(height, max(p[1] for p in points)))
     if not all(math.isfinite(v) for v in result):
-        raise ExtractionError("PDF 含无效的页面坐标。")
+        raise ExtractionError("PDF contains invalid page coordinates.")
     return result
 
 
@@ -85,7 +85,7 @@ def _text_lines(page, page_number: int, width: float, height: float,
     try:
         count = textpage.count_chars()
         if count > char_budget:
-            raise ExtractionError("PDF 原生文字超过字符上限；未返回截断结果。")
+            raise ExtractionError("PDF native text exceeds the character limit. No truncated result was returned.")
         glyphs: list[_Glyph] = []
         lines: list[Block] = []
         current: list[_Glyph] = []
@@ -108,9 +108,9 @@ def _text_lines(page, page_number: int, width: float, height: float,
         for index in range(count):
             codepoint = raw.FPDFText_GetUnicode(textpage, index)
             if not codepoint:
-                raise ExtractionError("PDF 含无法映射为 Unicode 的文字，不能可靠提取；请先导出为图片。")
+                raise ExtractionError("PDF contains text that cannot be mapped to Unicode for reliable extraction. Export it as images first.")
             if codepoint > 0x10FFFF or 0xD800 <= codepoint <= 0xDFFF:
-                raise ExtractionError("PDF 含无效的 Unicode 文字。")
+                raise ExtractionError("PDF contains invalid Unicode text.")
             char = chr(codepoint)
             if char in "\r\n":
                 finish()
@@ -136,7 +136,7 @@ def _text_lines(page, page_number: int, width: float, height: float,
                 # may legitimately be empty because it lies outside CropBox.
                 source_box = textpage.get_charbox(index, loose=True)
                 if not _resolvable_char_box(source_box):
-                    raise ExtractionError("PDF 原生文字可解码，但字形与字体边界均无法定位；未返回漏字结果。")
+                    raise ExtractionError("PDF native text can be decoded, but neither glyph nor font bounds can be located. No result with missing text was returned.")
                 used_loose_box = True
             box = _display_box(page, source_box, width, height)
             if box[2] <= box[0] or box[3] <= box[1]:
@@ -184,26 +184,26 @@ def _inspect_object(obj, page, options: Options, counter: list[int], depth: int 
     """Preflight nested images before rendering; return whether art is present."""
     counter[0] += 1
     if counter[0] > _MAX_OBJECTS or depth > _MAX_FORM_DEPTH:
-        raise ExtractionError("PDF 页面对象或嵌套层级过多。")
+        raise ExtractionError("PDF contains too many page objects or nesting levels.")
     kind = raw.FPDFPageObj_GetType(obj)
     if kind == raw.FPDF_PAGEOBJ_IMAGE:
         image = pdfium.PdfImage(obj, page=page)
         try:
             w, h = image.get_size()
             if w <= 0 or h <= 0 or w * h > options.max_image_pixels:
-                raise ExtractionError("PDF 内嵌图片超过像素上限或尺寸无效。")
+                raise ExtractionError("A PDF embedded image exceeds the pixel limit or has invalid dimensions.")
         finally:
             image.close()  # The page, not this non-owning wrapper, owns obj.
         return True
     if kind == raw.FPDF_PAGEOBJ_FORM:
         count = raw.FPDFFormObj_CountObjects(obj)
         if count < 0:
-            raise ExtractionError("PDF Form 对象读取失败。")
+            raise ExtractionError("A PDF Form object could not be read.")
         has_art = False
         for index in range(count):
             child = raw.FPDFFormObj_GetObject(obj, index)
             if not child:
-                raise ExtractionError("PDF Form 子对象读取失败。")
+                raise ExtractionError("A PDF Form child object could not be read.")
             # Do not short-circuit: every nested image needs a pixel guard.
             has_art = _inspect_object(child, page, options, counter, depth + 1) or has_art
         return has_art
@@ -217,7 +217,7 @@ def _regions(page, width: float, height: float, options: Options,
     counter = [0]
     count = raw.FPDFPage_CountObjects(page)
     if count < 0 or count > _MAX_OBJECTS:
-        raise ExtractionError("PDF 页面对象数量无效或超过限制。")
+        raise ExtractionError("The PDF page object count is invalid or exceeds the limit.")
     for object_index, obj in enumerate(page.get_objects(max_depth=1)):
         try:
             if not _inspect_object(obj.raw, page, options, counter):
@@ -235,11 +235,11 @@ def _regions(page, width: float, height: float, options: Options,
             obj.close()
     annotation_count = raw.FPDFPage_GetAnnotCount(page)
     if annotation_count < 0 or annotation_count + counter[0] > _MAX_OBJECTS:
-        raise ExtractionError("PDF 批注数量无效或超过限制。")
+        raise ExtractionError("The PDF annotation count is invalid or exceeds the limit.")
     for index in range(annotation_count):
         annotation = raw.FPDFPage_GetAnnot(page, index)
         if not annotation:
-            raise ExtractionError("PDF 批注读取失败。")
+            raise ExtractionError("A PDF annotation could not be read.")
         try:
             # Links carry no document content. Widgets and visible annotation
             # appearances are rendered, since textpage excludes their text.
@@ -247,7 +247,7 @@ def _regions(page, width: float, height: float, options: Options,
                 continue
             rectangle = raw.FS_RECTF()
             if not raw.FPDFAnnot_GetRect(annotation, ctypes.byref(rectangle)):
-                raise ExtractionError("PDF 批注坐标读取失败。")
+                raise ExtractionError("PDF annotation coordinates could not be read.")
             box = _display_box(page, (rectangle.left, rectangle.bottom,
                                       rectangle.right, rectangle.top), width, height)
             if box[2] > box[0] and box[3] > box[1]:
@@ -276,7 +276,7 @@ def _render_region(page, box: Box, width: float, height: float,
     scale = min(2., options.max_image_side / max(region_w, region_h),
                 math.sqrt(options.max_image_pixels / (region_w * region_h)))
     if scale <= 0 or not math.isfinite(scale):
-        raise ExtractionError("PDF 渲染尺寸无效。")
+        raise ExtractionError("PDF rendering dimensions are invalid.")
 
     # PDFium rounds the full page and each crop margin separately using ceil.
     # A subpixel vector line can otherwise lose its entire width/height.
@@ -317,7 +317,7 @@ def _render_region(page, box: Box, width: float, height: float,
         image = bitmap.to_pil().convert("RGB")
         try:
             if image.width * image.height > options.max_image_pixels:
-                raise ExtractionError("PDF 渲染图片超过像素上限。")
+                raise ExtractionError("The rendered PDF image exceeds the pixel limit.")
             draw = ImageDraw.Draw(image)
             masked = False
             for glyph in glyphs:
@@ -533,7 +533,7 @@ def _native_tables(page, native: list[Block], glyphs: list[_Glyph], rotation: in
             continue
         nrows, ncols = len(ys) - 1, len(xs) - 1
         if nrows * ncols > cell_budget - cells_used:
-            raise ExtractionError("PDF 原生表格单元格数量超过上限，请拆分文档。")
+            raise ExtractionError("The PDF native table cell count exceeds the limit. Split the document.")
         cells: list[list[list[_Glyph]]] = [[[] for _ in range(ncols)] for _ in range(nrows)]
         valid = True
         visible = 0
@@ -706,10 +706,10 @@ def _reading_order(blocks: list[Block], rotation=0, width=0., height=0.) -> tupl
 def parse_pdf(data: bytes, filename: str, options: Options) -> ParsedDocument:
     """Parse every page or fail explicitly; never return a truncated PDF."""
     if not data or len(data) > options.max_file_bytes:
-        raise ExtractionError("PDF 为空或超过文件大小上限。")
+        raise ExtractionError("The PDF is empty or exceeds the file size limit.")
     if options.max_images < 0 or min(options.max_pages, options.max_image_side,
            options.max_image_pixels, options.max_output_chars, options.max_total_image_bytes) <= 0:
-        raise ExtractionError("PDF 处理限制必须为正数。")
+        raise ExtractionError("PDF processing limits must be positive.")
     # PDFium has process-global state. The lock covers loading, all helpers,
     # raw calls and explicit destruction, including exceptional exits.
     with PDFIUM_LOCK:
@@ -717,11 +717,11 @@ def parse_pdf(data: bytes, filename: str, options: Options) -> ParsedDocument:
         try:
             document = pdfium.PdfDocument(data)
             if raw.FPDF_GetSecurityHandlerRevision(document) >= 0:
-                raise ExtractionError("不支持加密 PDF，请提供未加密副本。")
+                raise ExtractionError("Encrypted PDFs are not supported. Provide an unencrypted copy.")
             document.init_forms()
             page_count = len(document)
             if not page_count or page_count > options.max_pages:
-                raise ExtractionError("PDF 无页面或超过页数上限；未返回部分页面。")
+                raise ExtractionError("The PDF has no pages or exceeds the page limit. No partial pages were returned.")
             result = ParsedDocument(filename=filename, format="pdf", page_count=page_count)
             total_chars = total_images = total_bytes = total_cells = 0
             for page_index in range(page_count):
@@ -730,12 +730,12 @@ def parse_pdf(data: bytes, filename: str, options: Options) -> ParsedDocument:
                 try:
                     width, height = page.get_size()
                     if not all(math.isfinite(v) and 0 < v <= 1_000_000 for v in (width, height)):
-                        raise ExtractionError(f"PDF 第 {number} 页尺寸无效。")
+                        raise ExtractionError(f"PDF page {number} has invalid dimensions.")
                     native, glyphs, count, fallback_count = _text_lines(
                         page, number, width, height, options.max_output_chars - total_chars)
                     total_chars += count
                     if fallback_count:
-                        result.warnings.append(f"PDF 第 {number} 页有 {fallback_count} 个字形边界退化，已用字体范围保留原生文字；图文定位与遮罩范围请核对。")
+                        result.warnings.append(f"PDF page {number} has {fallback_count} degenerate glyph bounds. Font bounds were used to preserve native text; review text/image placement and masking regions.")
                     orientations = {round(g.angle / (math.pi / 2)) % 4
                                     for g in glyphs if not g.text.isspace()}
                     # A long vertical table header must not rotate a whole
@@ -745,18 +745,18 @@ def parse_pdf(data: bytes, filename: str, options: Options) -> ParsedDocument:
                     text_rotation = next(iter(orientations)) * 90 if len(orientations) == 1 else 0
                     order_rotation = (page.get_rotation() + text_rotation) % 360
                     if len(orientations) > 1:
-                        result.warnings.append(f"PDF 第 {number} 页含多方向文字，按页面和单元格位置排列，复杂方向顺序请核对。")
+                        result.warnings.append(f"PDF page {number} contains text in multiple directions, ordered by page and cell positions. Review complex reading directions.")
                     native, table_paths, table_cells = _native_tables(
                         page, native, glyphs, order_rotation, width, height,
                         options.max_table_cells - total_cells)
                     total_cells += table_cells
                     if table_cells:
-                        result.warnings.append(f"PDF 第 {number} 页已按完整原生网格重建表格，首行用作 Markdown 表头。")
+                        result.warnings.append(f"PDF page {number} tables were reconstructed from a complete native grid. The first row is used as the Markdown header.")
                     regions, complex_art, object_count = _regions(page, width, height, options, table_paths)
                     if raw.FPDFPage_GetAnnotCount(page):
-                        result.warnings.append(f"PDF 第 {number} 页的批注/表单按可见外观处理，不包含折叠批注正文或交互内容。")
+                        result.warnings.append(f"PDF page {number} annotations/forms are processed by visible appearance; collapsed annotation text and interactive content are excluded.")
                     if not native and not object_count:
-                        result.warnings.append(f"PDF 第 {number} 页为空白页。")
+                        result.warnings.append(f"PDF page {number} is blank.")
                         continue
                     if not native:
                         # A scanned/vector page is rendered ONCE, regardless
@@ -768,43 +768,43 @@ def parse_pdf(data: bytes, filename: str, options: Options) -> ParsedDocument:
                         overlapping = [g for g in glyphs if not g.text.isspace() and _overlap(g.box, region)]
                         content, region, trimmed = _render_region(page, region, width, height, glyphs, options)
                         if content is None:
-                            result.warnings.append(f"PDF 第 {number} 页有图像区域在移除已提取文字后仅剩空白，已跳过重复视觉识别。")
+                            result.warnings.append(f"An image region on PDF page {number} is blank after removing extracted text. Duplicate vision recognition was skipped.")
                             continue
                         if total_images + 1 > options.max_images:
-                            raise ExtractionError("PDF 待识别图片数量超过上限；未返回部分内容。")
+                            raise ExtractionError("The PDF image count to recognize exceeds the limit. No partial content was returned.")
                         block = image_block(content, options, page=number, bbox=region,
                                             origin="pdf-image-region" if native else "pdf-page",
                                             purpose="mixed",
-                                            context=("原生文字已另行提取；图片中相应文字已遮白。仅提取剩余内容，"
-                                                     "不要补写被遮白的文字。" if native else "按页面阅读顺序转写为 Markdown。"))
+                                            context=("Native text has been extracted separately and its image pixels masked white. Extract only remaining content; "
+                                                     "do not reconstruct masked text." if native else "Transcribe as Markdown in page reading order."))
                         total_images += 1
                         total_bytes += len(block.image)
                         if total_bytes > options.max_total_image_bytes:
-                            raise ExtractionError("PDF 图片总大小超过上限；未返回部分内容。")
+                            raise ExtractionError("The total PDF image size exceeds the limit. No partial content was returned.")
                         blocks.append(block)
                         if overlapping:
-                            result.warnings.append(f"PDF 第 {number} 页图像区域已遮罩原生文字以避免重复；文字覆盖处的图形细节可能受影响。")
+                            result.warnings.append(f"Native text in image regions on PDF page {number} was masked to avoid duplicates; graphic details covered by text may be affected.")
                             if trimmed:
-                                result.warnings.append(f"PDF 第 {number} 页已裁去遮罩后的纯白边缘，按剩余图形位置插入识别结果。")
+                                result.warnings.append(f"Pure-white edges were cropped after masking on PDF page {number}; recognition results are inserted at the remaining graphic position.")
                             elif ((original_region[2] - original_region[0]) * (original_region[3] - original_region[1])
                                   > width * height * .5):
-                                result.warnings.append(f"PDF 第 {number} 页图像背景或残留内容覆盖较大范围，图文插入位置需人工复核。")
+                                result.warnings.append(f"The image background or remaining content on PDF page {number} covers a large area. Review text/image insertion positions manually.")
                     ordered, complex_layout = _reading_order(blocks, order_rotation, width, height)
                     if sum(len(block.text) for block in result.blocks + ordered) > options.max_output_chars:
-                        raise ExtractionError("PDF 原生文字超过字符上限；未返回截断结果。")
+                        raise ExtractionError("PDF native text exceeds the character limit. No truncated result was returned.")
                     if complex_layout or complex_art:
-                        result.warnings.append(f"PDF 第 {number} 页含多栏或矢量/组合图形；阅读顺序和图表结构采用坐标启发式，请核对。")
+                        result.warnings.append(f"PDF page {number} contains multiple columns or vector/grouped graphics. Reading order and chart structure use coordinate heuristics; review the result.")
                     result.blocks.extend(ordered)
                 finally:
                     page.close()
             if not result.blocks:
-                raise ExtractionError("PDF 没有可提取的内容。")
+                raise ExtractionError("The PDF has no content to extract.")
             result.warnings = list(dict.fromkeys(result.warnings))
             return result
         except ExtractionError:
             raise
         except Exception as exc:
-            raise ExtractionError("PDF 损坏、加密或无法完整解析。") from exc
+            raise ExtractionError("The PDF is damaged, encrypted, or could not be fully parsed.") from exc
         finally:
             if document is not None:
                 document.close()

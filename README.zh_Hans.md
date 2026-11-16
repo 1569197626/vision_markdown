@@ -2,15 +2,15 @@
 
 [English](README.md) · [项目仓库](https://github.com/1569197626/vision_markdown) · [问题反馈与联系](https://github.com/1569197626/vision_markdown/issues) · [数据处理说明](PRIVACY.md)
 
-`ninebot/vision_markdown:0.1.6`。将原生文字、表格和图片识别结果按顺序合并为 Markdown。图片识别通过 Dify 已配置的工作空间视觉模型执行；依赖中没有 Docling、PyTorch、Triton、NVIDIA CUDA 或本地模型权重。
+`ninebot/vision_markdown:0.1.7`。将原生文字、表格和图片识别结果按顺序合并为 Markdown。图片识别通过 Dify 已配置的工作空间视觉模型执行；依赖中没有 Docling、PyTorch、Triton、NVIDIA CUDA 或本地模型权重。
 
 插件用于可核对的文档转换；具体业务文件仍需检查原文、表格和图表。安装成功或本地测试通过不代表任意文档 OCR 准确率已验证。
 
 ## 使用方式
 
-目标环境：Dify 1.17.1，plugin-daemon 0.6.10，Python 3.12。接口已按该版本源码与 SDK 0.6.0 核对。插件使用 `model-selector` 的 `llm&vision` 范围，选取工作空间已有视觉模型，无须在插件里重复填写 API Key。
+目标环境：Dify 1.17.1，plugin-daemon 0.6.10，Python 3.12。接口已按该版本源码与 SDK 0.9.0 核对。插件使用 `model-selector` 的 `llm&vision` 范围，选取工作空间已有视觉模型，无须在插件里重复填写 API Key。
 
-目前提供英文工具标签和英文文档；运行时错误与警告等诊断信息仍为中文，尚未完成英文界面的全部本地化。
+0.1.7 提供英文工具标签、英文文档，以及英文错误、警告和辅助标签；用户文档内容保留原语言。
 
 0.1.1 修复模型下拉列表为空的问题：Dify 前端需要用 `llm` 选择语言模型列表，再用 `vision` 筛选视觉能力；0.1.0 仅声明 `vision`，会出现模型已配置但下拉列表为空的情况。这次修复仅调整插件元数据，不改模型凭据或服务器配置。依据为 [Dify 1.17.1 插件模型选择器源码](https://github.com/langgenius/dify/blob/1.17.1/web/app/components/plugins/plugin-detail-panel/model-selector/index.tsx)。
 
@@ -74,7 +74,7 @@ PDF 图像区域与原生文字重叠时，会把已提取文字的位置遮白�
 uv venv --python 3.12 .venv
 uv pip install --python .venv/bin/python --only-binary=:all: -r requirements-dev.txt
 .venv/bin/python -m pytest tests -q
-.venv/bin/python scripts/package.py --cli /path/to/dify-plugin-cli --output ./dist/vision_markdown-0.1.6.difypkg
+.venv/bin/python scripts/package.py --cli /path/to/dify-plugin-cli --output ./dist/vision_markdown-0.1.7.difypkg
 ```
 
 将 `/path/to/dify-plugin-cli` 替换为官方 CLI 可执行文件路径。显式指定 `--output`，将发布产物保留在本仓库内。打包脚本使用白名单暂存源码，只将运行所需文件、图标与说明交给官方 CLI，不把 `.venv`、缓存、测试或本地凭据打入包。依赖由 Dify 安装时下载，包内不携带 Python 库。
@@ -92,3 +92,11 @@ uv pip install --python .venv/bin/python --only-binary=:all: -r requirements-dev
 ## 联系与反馈
 
 请通过[仓库 Issues](https://github.com/1569197626/vision_markdown/issues)提交问题或可复现的错误报告。公开反馈中不要包含凭据或保密原文。
+
+
+## 0.1.7 市场兼容版
+
+SDK 升级为固定 0.9.0，增加源码仓库及维护邮箱元数据，运行时诊断英文化。转换算法、资源限制、输出字段、权限及换行规范不变。0.1.6 原始安装包在 GitHub Release 保留；0.1.7 未安装到原线上环境，尚未测试 Dify Cloud。
+
+
+Maintainer contact: 1569197626@qq.com.
